@@ -1,44 +1,38 @@
 package com.airline.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import com.airline.dto.TicketRequest;
 import com.airline.entity.Schedule;
 import com.airline.entity.Ticket;
-import com.airline.repository.ScheduleRepository;
 import com.airline.repository.TicketRepository;
+import org.springframework.stereotype.Service;
 
 @Service
 public class TicketService {
-    @Autowired
-    private TicketRepository ticketRepository;
-    @Autowired
-    private ScheduleRepository scheduleRepository;
+    private final TicketRepository ticketRepository;
+    private final ScheduleService scheduleService;
 
-    public Ticket createTicket(TicketRequest request) {
-        Schedule schedule = scheduleRepository.findById(request.getScheduleId())
-                .orElseThrow(() -> new RuntimeException("Schedule not found with id: " + request.getScheduleId()));
+    public TicketService(TicketRepository ticketRepository, ScheduleService scheduleService) {
+        this.ticketRepository = ticketRepository;
+        this.scheduleService = scheduleService;
+    }
 
-        Ticket ticket = new Ticket();
-        ticket.setPassengerName(request.getPassengerName());
+    public Ticket createTicket(Ticket ticket) {
+        if (ticket.getPassengerName() == null || ticket.getPassengerName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Passenger name cannot be empty");
+        }
+        Schedule schedule = scheduleService.getScheduleById(ticket.getSchedule().getId());
         ticket.setSchedule(schedule);
-        ticket.setStatus("BOOKED");
-
         return ticketRepository.save(ticket);
     }
 
-    public Ticket getTicket(Long id) {
+    public Ticket getTicketById(Long id) {
         return ticketRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Ticket not found with id: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Ticket not found"));
     }
 
     public void deleteTicket(Long id) {
-        Ticket ticket = getTicket(id);
-        if ("CANCELLED".equals(ticket.getStatus())) {
-            throw new RuntimeException("Ticket already cancelled: " + id);
+        if (!ticketRepository.existsById(id)) {
+            throw new IllegalArgumentException("Ticket not found");
         }
-        ticket.setStatus("CANCELLED");
-        ticketRepository.save(ticket);
+        ticketRepository.deleteById(id);
     }
 }
